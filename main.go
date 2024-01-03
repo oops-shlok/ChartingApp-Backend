@@ -9,25 +9,13 @@ import (
 	"time"
 )
 
-func corsHandler(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type")
-		next.ServeHTTP(w, r)
-	})
-}
-
 func getHistory(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	queries := r.URL.Query()
 
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type")
-
 	symbol := queries.Get("symbol")
-	startDate := queries.Get("start_date")
-	endDate := queries.Get("end_date")
+	startDate := "2018-12-31"
+	endDate := "2024-01-01"
 
 	if symbol == "" || startDate == "" || endDate == "" {
 		http.Error(w, "Invalid Params", http.StatusBadRequest)
@@ -53,14 +41,13 @@ func getHistory(w http.ResponseWriter, r *http.Request) {
 		"period2":  strconv.FormatInt(endTimestamp, 10),
 		"interval": "1d",
 	}
-
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
+	
 	q := req.URL.Query()
 	for key, value := range params {
 		q.Add(key, value)
@@ -81,7 +68,6 @@ func getHistory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	fmt.Fprint(w, string(body))
 }
 
@@ -100,11 +86,8 @@ func main() {
 	addr := ":8080"
 
 	m.HandleFunc("/getHistory", getHistory)
-
-	corsMux := corsHandler(m)
-
 	srv := http.Server{
-		Handler: corsMux,
+		Handler: m,
 		Addr:    addr,
 	}
 
