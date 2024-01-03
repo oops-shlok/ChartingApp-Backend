@@ -9,8 +9,21 @@ import (
 	"time"
 )
 
+func corsHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func getHistory(w http.ResponseWriter, r *http.Request) {
 	queries := r.URL.Query()
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type")
 
 	symbol := queries.Get("symbol")
 	startDate := queries.Get("start_date")
@@ -87,8 +100,11 @@ func main() {
 	addr := ":8080"
 
 	m.HandleFunc("/getHistory", getHistory)
+
+	corsMux := corsHandler(m)
+
 	srv := http.Server{
-		Handler: m,
+		Handler: corsMux,
 		Addr:    addr,
 	}
 
