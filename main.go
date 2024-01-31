@@ -16,6 +16,7 @@ func getHistory(w http.ResponseWriter, r *http.Request) {
 	symbol := queries.Get("symbol")
 	startDate := "2018-12-31"
 	endDate := "2024-01-01"
+	interval := queries.Get("interval")
 
 	if symbol == "" || startDate == "" || endDate == "" {
 		http.Error(w, "Invalid Params", http.StatusBadRequest)
@@ -39,7 +40,7 @@ func getHistory(w http.ResponseWriter, r *http.Request) {
 	params := map[string]string{
 		"period1":  strconv.FormatInt(startTimestamp, 10),
 		"period2":  strconv.FormatInt(endTimestamp, 10),
-		"interval": "1d",
+		"interval": interval,
 	}
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
