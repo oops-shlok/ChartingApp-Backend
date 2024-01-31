@@ -5,9 +5,14 @@ import (
     "log"
     "net/http"
 		"ChartingApp-Backend/internal/finance"
+		"ChartingApp-Backend/internal/database"
 )
 
 func main() {
+	if err := database.InitMongoDB(); err != nil {
+		log.Fatal("Failed to initialize MongoDB:", err)
+	}
+
 	m := http.NewServeMux()
 
 	addr := ":8080"
