@@ -1,5 +1,3 @@
-// internal/database/mongodb.go
-
 package database
 
 import (
@@ -11,6 +9,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const databaseName = "ChartKraft"
+const usersCollection = "Users"
+
 var client *mongo.Client
 
 func InitMongoDB() error {
@@ -18,7 +19,8 @@ func InitMongoDB() error {
 	defer cancel()
 
 	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
-	client, err := mongo.Connect(ctx, clientOptions)
+	var err error
+	client, err = mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		log.Fatal(err)
 		return err

@@ -1,11 +1,13 @@
 package main
 
 import (
-    "fmt"
-    "log"
-    "net/http"
-		"ChartingApp-Backend/internal/finance"
-		"ChartingApp-Backend/internal/database"
+	"fmt"
+	"log"
+	"net/http"
+
+	"ChartingApp-Backend/internal/auth"
+	"ChartingApp-Backend/internal/database"
+	"ChartingApp-Backend/internal/finance"
 )
 
 func main() {
@@ -13,17 +15,24 @@ func main() {
 		log.Fatal("Failed to initialize MongoDB:", err)
 	}
 
+
+
+	authService := auth.NewAuthService("YMinzYNPlPw8dnljfXhSMsVwdVgpnXfI")
+	authMiddleware := auth.NewAuthMiddleware(authService, nil)
+
 	m := http.NewServeMux()
 
-	addr := ":8080"
+	m.Handle("/getHistory", authMiddleware.MiddlewareFunc(http.HandlerFunc(finance.GetHistory)))
+	m.HandleFunc("/register", auth.CreateUserHandler)
+	m.HandleFunc("/login", auth.AuthenticateHandler)
 
-	m.HandleFunc("/getHistory", finance.GetHistory)
+	addr := ":8080"
 	srv := http.Server{
 		Handler: m,
 		Addr:    addr,
 	}
 
-	fmt.Println("server is running at port ", addr)
+	fmt.Println("Server is running at port", addr)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
