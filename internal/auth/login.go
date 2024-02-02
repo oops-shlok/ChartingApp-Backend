@@ -7,6 +7,7 @@ import (
 	"time"
 	"log"
 	"net/http"
+	"os"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -46,7 +47,17 @@ func NewAuthService(secretKey string) func(token string) (User, error) {
 			return User{}, fmt.Errorf("failed to extract claims from JWT token")
 		}
 
-		user, err := GetUserByUsername(claims.Subject)
+		databaseName := os.Getenv("DB_NAME")
+		if databaseName == "" {
+			log.Fatal("DB_NAME not set in .env file")
+		}
+
+		collectionName := os.Getenv("COLLECTION_NAME")
+		if collectionName == "" {
+			log.Fatal("COLLECTION_NAME not set in .env file")
+		}
+
+		user, err := GetUserByUsername(claims.Subject, databaseName, collectionName)
 		if err != nil {
 			return User{}, fmt.Errorf("failed to fetch user details: %v", err)
 		}
@@ -56,6 +67,12 @@ func NewAuthService(secretKey string) func(token string) (User, error) {
 }
 
 func AuthenticateHandler(w http.ResponseWriter, r *http.Request) {
+
+	secretKey := os.Getenv("JWT_SECRET_KEY")
+	if secretKey == "" {
+		log.Fatal("JWT_SECRET_KEY not set in .env file")
+	}
+
 	var authRequest AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&authRequest); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -73,7 +90,7 @@ func AuthenticateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := generateJWTToken(user)
+	token, err := generateJWTToken(user, secretKey)
 	if err != nil {
 		http.Error(w, "Failed to generate JWT token", http.StatusInternalServerError)
 		return
@@ -90,7 +107,17 @@ func AuthenticateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func AuthenticateUser(authRequest AuthRequest) (User, error) {
-	user, err := GetUserByUsername(authRequest.Username)
+	databaseName := os.Getenv("DB_NAME")
+	if databaseName == "" {
+		log.Fatal("DB_NAME not set in .env file")
+	}
+
+	collectionName := os.Getenv("COLLECTION_NAME")
+	if collectionName == "" {
+		log.Fatal("COLLECTION_NAME not set in .env file")
+	}
+
+	user, err := GetUserByUsername(authRequest.Username, databaseName, collectionName)
 	if err != nil {
 		return User{}, err
 	}
@@ -102,8 +129,8 @@ func AuthenticateUser(authRequest AuthRequest) (User, error) {
 	return user, nil
 }
 
-func GetUserByUsername(username string) (User, error) {
-	collection := database.GetDB().Database("ChartKraft").Collection("Users")
+func GetUserByUsername(username string, databaseName string, collectionName string) (User, error) {
+	collection := database.GetDB().Database(databaseName).Collection(collectionName)
 
 	var user User
 	err := collection.FindOne(context.TODO(), bson.M{"username": username}).Decode(&user)
@@ -118,8 +145,7 @@ func GetUserByUsername(username string) (User, error) {
 	return user, nil
 }
 
-func generateJWTToken(user User) (string, error) {
-	secretKey := "YMinzYNPlPw8dnljfXhSMsVwdVgpnXfI"
+func generateJWTToken(user User, secretKey string) (string, error) {
 
 	expirationTime := time.Now().Add(7 * 24 * time.Hour)
 	claims := &jwt.StandardClaims{

@@ -5,20 +5,18 @@ import (
 	"fmt"
 	"log"
 	"time"
+
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const databaseName = "ChartKraft"
-const usersCollection = "Users"
-
 var client *mongo.Client
 
-func InitMongoDB() error {
+func InitMongoDB(mongoURI, dbName, collectionName string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+	clientOptions := options.Client().ApplyURI(mongoURI)
 	var err error
 	client, err = mongo.Connect(ctx, clientOptions)
 	if err != nil {
@@ -32,7 +30,7 @@ func InitMongoDB() error {
 		return err
 	}
 
-	fmt.Println("Connected to MongoDB!")
+	fmt.Printf("Connected to MongoDB! Database: %s, Collection: %s\n", dbName, collectionName)
 
 	return nil
 }
