@@ -5,10 +5,12 @@ import (
 	"log"
 	"net/http"
 	"os"
-  "github.com/joho/godotenv"
+
+	"github.com/joho/godotenv"
+	"github.com/rs/cors"
 	"ChartingApp-Backend/internal/auth"
-	"ChartingApp-Backend/internal/finance"
 	"ChartingApp-Backend/internal/database"
+	"ChartingApp-Backend/internal/finance"
 )
 
 func main() {
@@ -37,13 +39,15 @@ func main() {
 
 	m := http.NewServeMux()
 
+	corsHandler := cors.Default().Handler
+
 	m.HandleFunc("/getHistory", finance.GetHistory)
 	m.HandleFunc("/register", auth.CreateUserHandler)
 	m.HandleFunc("/login", auth.AuthenticateHandler)
 
 	addr := ":8080"
 	srv := http.Server{
-		Handler: m,
+		Handler: corsHandler(m),
 		Addr:    addr,
 	}
 
