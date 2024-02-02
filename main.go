@@ -2,97 +2,56 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"strconv"
-	"time"
+	"os"
+
+	"github.com/joho/godotenv"
+	"github.com/rs/cors"
+	"ChartingApp-Backend/internal/auth"
+	"ChartingApp-Backend/internal/database"
+	"ChartingApp-Backend/internal/finance"
 )
 
-func getHistory(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	queries := r.URL.Query()
-
-	symbol := queries.Get("symbol")
-	startDate := "2018-12-31"
-	endDate := "2024-01-01"
-	interval := queries.Get("interval")
-
-	if symbol == "" || startDate == "" || endDate == "" {
-		http.Error(w, "Invalid Params", http.StatusBadRequest)
-		return
-	}
-
-	startTimestamp, err := convertToUnixTimestamp(startDate)
-	if err != nil {
-		http.Error(w, "Start date not in proper format", http.StatusBadRequest)
-		return
-	}
-
-	endTimestamp, err := convertToUnixTimestamp(endDate)
-	if err != nil {
-		http.Error(w, "End date not in proper format", http.StatusBadRequest)
-		return
-	}
-
-	apiURL := fmt.Sprintf("https://query1.finance.yahoo.com/v7/finance/download/%s", symbol)
-
-	params := map[string]string{
-		"period1":  strconv.FormatInt(startTimestamp, 10),
-		"period2":  strconv.FormatInt(endTimestamp, 10),
-		"interval": interval,
-	}
-	req, err := http.NewRequest("GET", apiURL, nil)
-	if err != nil {
-		fmt.Println("Error creating request:", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	
-	q := req.URL.Query()
-	for key, value := range params {
-		q.Add(key, value)
-	}
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		fmt.Println("Error making request:", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error reading response body:", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	fmt.Fprint(w, string(body))
-}
-
-func convertToUnixTimestamp(dateString string) (int64, error) {
-	layout := "2006-01-02"
-	t, err := time.Parse(layout, dateString)
-	if err != nil {
-		return 0, err
-	}
-	return t.Unix(), nil
-}
-
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	mongoURI := os.Getenv("MONGO_URI")
+	if mongoURI == "" {
+		log.Fatal("MONGO_URI not set in .env file")
+	}
+
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		log.Fatal("DB_NAME not set in .env file")
+	}
+
+	collectionName := os.Getenv("COLLECTION_NAME")
+	if collectionName == "" {
+		log.Fatal("COLLECTION_NAME not set in .env file")
+	}
+
+	if err := database.InitMongoDB(mongoURI, dbName, collectionName); err != nil {
+		log.Fatal("Failed to initialize MongoDB:", err)
+	}
+
 	m := http.NewServeMux()
 
-	addr := ":8080"
+	corsHandler := cors.Default().Handler
 
-	m.HandleFunc("/getHistory", getHistory)
+	m.HandleFunc("/getHistory", finance.GetHistory)
+	m.HandleFunc("/register", auth.CreateUserHandler)
+	m.HandleFunc("/login", auth.AuthenticateHandler)
+
+	addr := ":8080"
 	srv := http.Server{
-		Handler: m,
+		Handler: corsHandler(m),
 		Addr:    addr,
 	}
 
-	fmt.Println("server is running at port ", addr)
+	fmt.Println("Server is running at port", addr)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
