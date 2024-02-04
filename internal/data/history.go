@@ -12,34 +12,34 @@ func GetHistory(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	queries := r.URL.Query()
 
-	symbol := queries.Get("symbol")
-	startDate := "2018-12-31"
-	endDate := "2024-01-01"
+	instrumentKey := queries.Get("instrument_key")
+	fromDate := "2018-01-01"
+	toDate := time.Now().Format("2006-01-02")
 	interval := queries.Get("interval")
 
-	if symbol == "" || startDate == "" || endDate == "" {
+	if instrumentKey == "" || fromDate == "" || toDate == "" {
 		http.Error(w, "Invalid Params", http.StatusBadRequest)
 		return
 	}
 
-	startTimestamp, err := convertToUnixTimestamp(startDate)
+	fromTimestamp, err := convertToUnixTimestamp(fromDate)
 	if err != nil {
-		http.Error(w, "Start date not in proper format", http.StatusBadRequest)
+		http.Error(w, "From date not in proper format", http.StatusBadRequest)
 		return
 	}
 
-	endTimestamp, err := convertToUnixTimestamp(endDate)
+	toTimestamp, err := convertToUnixTimestamp(toDate)
 	if err != nil {
-		http.Error(w, "End date not in proper format", http.StatusBadRequest)
+		http.Error(w, "To date not in proper format", http.StatusBadRequest)
 		return
 	}
 
-	apiURL := fmt.Sprintf("https://query1.finance.yahoo.com/v7/finance/download/%s", symbol)
+	apiURL := fmt.Sprintf("https://api.upstox.com/v2/historical-candle/%s/%s/%s/%s", instrumentKey, interval, toDate, fromDate)
 
 	params := map[string]string{
-		"period1":  strconv.FormatInt(startTimestamp, 10),
-		"period2":  strconv.FormatInt(endTimestamp, 10),
-		"interval": interval,
+		"from_date": strconv.FormatInt(fromTimestamp, 10),
+		"to_date":   strconv.FormatInt(toTimestamp, 10),
+		"interval":  interval,
 	}
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
@@ -47,7 +47,7 @@ func GetHistory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	
+
 	q := req.URL.Query()
 	for key, value := range params {
 		q.Add(key, value)

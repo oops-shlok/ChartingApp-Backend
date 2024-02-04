@@ -10,7 +10,7 @@ import (
 	"github.com/rs/cors"
 	"ChartingApp-Backend/internal/auth"
 	"ChartingApp-Backend/internal/database"
-	"ChartingApp-Backend/internal/finance"
+	"ChartingApp-Backend/internal/data"
 )
 
 func main() {
@@ -42,12 +42,18 @@ func main() {
 	corsHandler := cors.Default().Handler
 
 	m.HandleFunc("/getHistory", finance.GetHistory)
+
 	m.HandleFunc("/register", auth.CreateUserHandler)
 	m.HandleFunc("/login", auth.AuthenticateHandler)
 
+	m.HandleFunc("/oauth/login", auth.OAuthLoginHandler)
+	m.HandleFunc("/oauth/callback", auth.OAuthCallbackHandler)
+
+	handler := corsHandler(m)
+
 	addr := ":8080"
 	srv := http.Server{
-		Handler: corsHandler(m),
+		Handler: handler,
 		Addr:    addr,
 	}
 
