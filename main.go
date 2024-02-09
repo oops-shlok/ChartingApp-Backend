@@ -42,6 +42,9 @@ func main() {
 	corsHandler := cors.Default().Handler
 
 	m.HandleFunc("/getHistory", finance.GetHistory)
+	m.HandleFunc("/getRealTimeData", finance.LoginAuthorisation)
+	m.HandleFunc("/getCode", finance.GetToken)
+	m.HandleFunc("/ws", finance.HandleWebSocket)
 
 	m.HandleFunc("/register", auth.CreateUserHandler)
 	m.HandleFunc("/login", auth.AuthenticateHandler)
