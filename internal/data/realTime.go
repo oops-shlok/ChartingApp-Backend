@@ -3,18 +3,16 @@ package finance
 
 import (
 	"encoding/json"
-  "fmt"
-  "net/http"
-  "net/url"
-	"time"
+	"fmt"
+	"net/http"
+	"net/url"
 	"os"
-	"os/signal"
-	"log"
+	"time"
 
 	"ChartingApp-Backend/internal/database"
-	"github.com/gorilla/websocket"
-	"go.mongodb.org/mongo-driver/bson"
 	"context"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func LoginAuthorisation(w http.ResponseWriter, r *http.Request) {
@@ -104,73 +102,7 @@ func storeAccessTokenInDB(accessToken string) error {
 	return nil
 }
 
-// var upgrader = websocket.Upgrader{
-// 	CheckOrigin: func(r *http.Request) bool {
-// 		return true
-// 	},
-// }
-
-func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-	accessToken, err := GetAccessTokenFromDB()
-	url := "wss://api.upstox.com/v2/feed/market-data-feed"
-
-    // Connect to the WebSocket server
-    c, _, err := websocket.DefaultDialer.Dial(url, http.Header{
-			"Authorization": []string{"Bearer " + accessToken},
-		})
-
-    if err != nil {
-        log.Fatal("Error connecting to WebSocket:", err)
-    }
-    defer c.Close()
-
-		done := make(chan struct{})
-
-	go func() {
-		defer close(done)
-		for {
-			_, message, err := c.ReadMessage()
-			if err != nil {
-				log.Println("read:", err)
-				return
-			}
-			fmt.Printf("Received message: %s\n", message)
-		}
-	}()
-
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-done:
-			return
-		case t := <-ticker.C:
-			err := c.WriteMessage(websocket.TextMessage, []byte("{'guid':'someguid','method':'sub','data':{'mode':'full','instrumentKeys':['NSE_INDEX|Nifty Bank']}}"))
-			if err != nil {
-				log.Println("write:", err, t)
-				return
-			}
-		case <-interrupt:
-			fmt.Println("Interrupt received, closing connection...")
-			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				log.Println("write close:", err)
-				return
-			}
-			select {
-			case <-done:
-			case <-time.After(time.Second):
-			}
-			return
-		}
-	}
-		
-}
-
-func GetAccessTokenFromDB() (string, error) {
+func GetAccessTokenFromDB(w http.ResponseWriter, r *http.Request) {
 	db := database.GetDB()
 
 	collection := db.Database("ChartKraft").Collection("Real Time")
@@ -179,11 +111,13 @@ func GetAccessTokenFromDB() (string, error) {
 	var tokenDoc bson.M
 	err := collection.FindOne(ctx, bson.M{}).Decode(&tokenDoc)
 	if err != nil {
-		return "", err
+		fmt.Println("Error Getting Access Token:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 
 	accessToken := tokenDoc["token"].(string)
-	return accessToken, nil
+	fmt.Fprint(w, string(accessToken))
 }
 
 func StoreOHLCDataInDB(data map[string]interface{}) error {
@@ -198,4 +132,28 @@ func StoreOHLCDataInDB(data map[string]interface{}) error {
 	}
 
 	return nil
+}
+
+
+func GetLargeFiles(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("file")
+	file, err := os.Open("largeFiles/stocksLists.json")
+	fmt.Println(file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	// Decode JSON file content
+	var data interface{}
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Convert data to JSON and send it to the client
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(data)
 }
