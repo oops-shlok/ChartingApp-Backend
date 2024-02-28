@@ -44,7 +44,8 @@ func main() {
 	m.HandleFunc("/getHistory", finance.GetHistory)
 	m.HandleFunc("/getRealTimeData", finance.LoginAuthorisation)
 	m.HandleFunc("/getCode", finance.GetToken)
-	m.HandleFunc("/ws", finance.HandleWebSocket)
+	m.HandleFunc("/getAccessToken", finance.GetAccessTokenFromDB)
+	m.HandleFunc("/getStocksList", finance.GetLargeFiles)
 
 	m.HandleFunc("/register", auth.CreateUserHandler)
 	m.HandleFunc("/login", auth.AuthenticateHandler)
